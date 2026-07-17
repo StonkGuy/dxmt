@@ -167,6 +167,18 @@ Object::description() {
 
 class Error : public Object {
 public:
+  /* Out-error slot for the creation wrappers: the callee retains the
+   * error before writing the handle back, so drop whatever a previous
+   * call left here first — a retry reusing one Reference<Error> would
+   * otherwise leak it. */
+  obj_handle_t *
+  out_handle() {
+    if (handle) {
+      NSObject_release(handle);
+      handle = 0;
+    }
+    return &handle;
+  }
 };
 
 class DispatchData : public Object {
@@ -750,7 +762,7 @@ public:
       const char *name, const WMTFunctionConstant *constants, uint32_t num_constants, Error &error
   ) {
     return Reference<Function>(
-        MTLLibrary_newFunctionWithConstants(handle, name, constants, num_constants, &error.handle)
+        MTLLibrary_newFunctionWithConstants(handle, name, constants, num_constants, error.out_handle())
     );
   }
 };
@@ -759,7 +771,7 @@ class BinaryArchive : public Object {
 public:
   void
   serialize(const char *url, Error &error) {
-    MTLBinaryArchive_serialize(handle, url, &error.handle);
+    MTLBinaryArchive_serialize(handle, url, error.out_handle());
   }
 };
 
@@ -827,7 +839,7 @@ public:
   Reference<Library>
   newLibrary(const void *bytecode, uint64_t bytecode_length, Error &error) {
     auto data = DispatchData_alloc_init((uint64_t)bytecode, bytecode_length);
-    auto ret = Reference<Library>(MTLDevice_newLibrary(handle, data, &error.handle));
+    auto ret = Reference<Library>(MTLDevice_newLibrary(handle, data, error.out_handle()));
     NSObject_release(data);
     return ret;
   }
@@ -835,14 +847,14 @@ public:
   Reference<Library>
   newLibraryFromNativeBuffer(uint64_t bytecode, uint64_t bytecode_length, Error &error) {
     auto data = DispatchData_alloc_init(bytecode, bytecode_length);
-    auto ret = Reference<Library>(MTLDevice_newLibrary(handle, data, &error.handle));
+    auto ret = Reference<Library>(MTLDevice_newLibrary(handle, data, error.out_handle()));
     NSObject_release(data);
     return ret;
   }
 
   Reference<Library>
   newLibrary(DispatchData data, Error &error) {
-    return Reference<Library>(MTLDevice_newLibrary(handle, data, &error.handle));
+    return Reference<Library>(MTLDevice_newLibrary(handle, data, error.out_handle()));
   }
 
   Reference<Library>
@@ -861,7 +873,7 @@ public:
     info.num_binary_archives_for_lookup = 0;
     info.fail_on_binary_archive_miss = false;
     info.support_indirect_command_buffers = false;
-    return Reference<ComputePipelineState>(MTLDevice_newComputePipelineState(handle, &info, &error.handle));
+    return Reference<ComputePipelineState>(MTLDevice_newComputePipelineState(handle, &info, error.out_handle()));
   }
 
   Reference<ComputePipelineState>
@@ -875,27 +887,27 @@ public:
     info.num_binary_archives_for_lookup = 0;
     info.fail_on_binary_archive_miss = false;
     info.support_indirect_command_buffers = false;
-    return Reference<ComputePipelineState>(MTLDevice_newComputePipelineState(handle, &info, &error.handle));
+    return Reference<ComputePipelineState>(MTLDevice_newComputePipelineState(handle, &info, error.out_handle()));
   }
 
   Reference<RenderPipelineState>
   newRenderPipelineState(const WMTRenderPipelineInfo &info, Error &error) {
-    return Reference<RenderPipelineState>(MTLDevice_newRenderPipelineState(handle, &info, &error.handle));
+    return Reference<RenderPipelineState>(MTLDevice_newRenderPipelineState(handle, &info, error.out_handle()));
   }
 
   Reference<ComputePipelineState>
   newComputePipelineState(const WMTComputePipelineInfo &info, Error &error) {
-    return Reference<ComputePipelineState>(MTLDevice_newComputePipelineState(handle, &info, &error.handle));
+    return Reference<ComputePipelineState>(MTLDevice_newComputePipelineState(handle, &info, error.out_handle()));
   }
 
   Reference<RenderPipelineState>
   newRenderPipelineState(const WMTMeshRenderPipelineInfo &info, Error &error) {
-    return Reference<RenderPipelineState>(MTLDevice_newMeshRenderPipelineState(handle, &info, &error.handle));
+    return Reference<RenderPipelineState>(MTLDevice_newMeshRenderPipelineState(handle, &info, error.out_handle()));
   }
 
   Reference<RenderPipelineState>
   newRenderPipelineState(const WMTTileRenderPipelineInfo &info, Error &error) {
-    return Reference<RenderPipelineState>(MTLDevice_newTileRenderPipelineState(handle, &info, &error.handle));
+    return Reference<RenderPipelineState>(MTLDevice_newTileRenderPipelineState(handle, &info, error.out_handle()));
   }
 
   Reference<Fence>
@@ -910,7 +922,7 @@ public:
 
   Reference<ResidencySet>
   newResidencySet(uint64_t init_capacity, Error &error) {
-    return Reference<ResidencySet>(MTLDevice_newResidencySet(handle, init_capacity, &error.handle));
+    return Reference<ResidencySet>(MTLDevice_newResidencySet(handle, init_capacity, error.out_handle()));
   }
 
   Reference<Heap>
@@ -965,7 +977,7 @@ public:
 
   Reference<BinaryArchive>
   newBinaryArchive(const char *url, Error &error) {
-    return Reference<BinaryArchive>(MTLDevice_newBinaryArchive(handle, url, &error.handle));
+    return Reference<BinaryArchive>(MTLDevice_newBinaryArchive(handle, url, error.out_handle()));
   }
 
   bool

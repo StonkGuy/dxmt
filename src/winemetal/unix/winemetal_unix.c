@@ -806,18 +806,28 @@ _MTLComputeCommandEncoder_encodeCommands(void *obj) {
       break;
     case WMTComputeCommandDispatch: {
       struct wmtcmd_compute_dispatch *body = (struct wmtcmd_compute_dispatch *)next;
+      /* threadgroup_size is only set by SetPSO. If pipeline creation failed
+       * (e.g. the Metal compiler service died), SetPSO was never encoded and
+       * dispatching with a zero threadgroup size is a fatal API violation.
+       * Skip the dispatch: one compute pass drops instead of the process. */
+      if (threadgroup_size.width == 0)
+        break;
       [encoder dispatchThreadgroups:MTLSizeMake(body->size.width, body->size.height, body->size.depth)
               threadsPerThreadgroup:threadgroup_size];
       break;
     }
     case WMTComputeCommandDispatchThreads: {
       struct wmtcmd_compute_dispatch *body = (struct wmtcmd_compute_dispatch *)next;
+      if (threadgroup_size.width == 0)
+        break;
       [encoder dispatchThreads:MTLSizeMake(body->size.width, body->size.height, body->size.depth)
           threadsPerThreadgroup:threadgroup_size];
       break;
     }
     case WMTComputeCommandDispatchIndirect: {
       struct wmtcmd_compute_dispatch_indirect *body = (struct wmtcmd_compute_dispatch_indirect *)next;
+      if (threadgroup_size.width == 0)
+        break;
       [encoder dispatchThreadgroupsWithIndirectBuffer:(id<MTLBuffer>)body->indirect_args_buffer
                                  indirectBufferOffset:body->indirect_args_offset
                                 threadsPerThreadgroup:threadgroup_size];

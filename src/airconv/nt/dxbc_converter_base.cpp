@@ -2421,7 +2421,7 @@ Converter::operator()(const InstAtomicBinOp &atomic) {
 
   if (Buf) {
     auto IntPtrOffset = LoadAtomicOpAddress(Buf.getValue(), atomic.dst_address);
-    auto Ptr = ir.CreateGEP(ir.getInt32Ty(), Buf->Pointer, {IntPtrOffset});
+    auto Ptr = CreateGEPInt32WithBoundCheck(Buf.getValue(), IntPtrOffset);
     auto Value = air.CreateAtomicRMW(Op, Ptr, LoadOperand(atomic.src, kMaskComponentX));
     StoreOperand(atomic.dst_original, Value);
     return;
@@ -2480,7 +2480,7 @@ Converter::operator()(const InstAtomicImmCmpExchange &atomic) {
 
   if (Buf) {
     auto IntPtrOffset = LoadAtomicOpAddress(Buf.getValue(), atomic.dst_address);
-    auto Ptr = ir.CreateGEP(ir.getInt32Ty(), Buf->Pointer, {IntPtrOffset});
+    auto Ptr = CreateGEPInt32WithBoundCheck(Buf.getValue(), IntPtrOffset);
     auto Value = ir.CreateAtomicCmpXchg(
         Ptr, LoadOperand(atomic.src0, kMaskComponentX), LoadOperand(atomic.src1, kMaskComponentX), {},
         AtomicOrdering::Monotonic, AtomicOrdering::Monotonic

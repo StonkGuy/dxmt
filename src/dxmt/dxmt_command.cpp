@@ -406,11 +406,12 @@ TileBarrierContext::dispatch() {
     cmd_dispatch.width = kBarrierTileSize;
     cmd_dispatch.height = kBarrierTileSize;
 
-    if (auto pso_recover = ctx_.currentRenderEncoder()->last_pso) {
-      auto &cmd_recover = ctx_.encodeRenderCommand<wmtcmd_render_setpso>();
-      cmd_recover.type = WMTRenderCommandSetPSO;
-      cmd_recover.pso = pso_recover;
-    }
+    /* Restore the pipeline the encoder had before the barrier. last_pso is
+     * null when that pipeline failed to compile; restoring "null" keeps the
+     * following draws dropped instead of running on the tile pipeline. */
+    auto &cmd_recover = ctx_.encodeRenderCommand<wmtcmd_render_setpso>();
+    cmd_recover.type = WMTRenderCommandSetPSO;
+    cmd_recover.pso = ctx_.currentRenderEncoder()->last_pso;
   }
 }
 

@@ -4781,8 +4781,9 @@ public:
       pso->GetPipeline(&GraphicsPipeline); // may block
       enc.tess_num_output_control_point_element = GraphicsPipeline.NumControlPointOutputElement;
       enc.tess_threads_per_patch = GraphicsPipeline.ThreadsPerPatch;
-      if (!GraphicsPipeline.PipelineState)
-        return;
+      /* A null pipeline (compilation failed) is encoded anyway: it tells
+       * winemetal to drop the draws queued for it rather than run them with
+       * whatever pipeline the encoder had bound before. */
       auto &cmd = enc.encodeRenderCommand<wmtcmd_render_setpso>();
       cmd.type = WMTRenderCommandSetPSO;
       cmd.pso = GraphicsPipeline.PipelineState;
@@ -4827,8 +4828,6 @@ public:
       render_encoder->use_geometry = 1;
       MTL_COMPILED_GRAPHICS_PIPELINE GraphicsPipeline{};
       pso->GetPipeline(&GraphicsPipeline); // may block
-      if (!GraphicsPipeline.PipelineState)
-        return;
       auto &cmd = enc.encodeRenderCommand<wmtcmd_render_setpso>();
       cmd.type = WMTRenderCommandSetPSO;
       cmd.pso = GraphicsPipeline.PipelineState;
@@ -4883,8 +4882,6 @@ public:
     EmitST([pso = std::move(pipeline)](ArgumentEncodingContext& enc) {
       MTL_COMPILED_GRAPHICS_PIPELINE GraphicsPipeline{};
       pso->GetPipeline(&GraphicsPipeline); // may block
-      if (!GraphicsPipeline.PipelineState)
-        return;
       auto &cmd = enc.encodeRenderCommand<wmtcmd_render_setpso>();
       cmd.type = WMTRenderCommandSetPSO;
       cmd.pso = GraphicsPipeline.PipelineState;
@@ -5043,12 +5040,13 @@ public:
                ArgumentEncodingContext &enc) {
       MTL_COMPILED_COMPUTE_PIPELINE ComputePipeline;
       pso->GetPipeline(&ComputePipeline); // may block
-      if (!ComputePipeline.PipelineState)
-        return;
+      /* A null pipeline (compilation failed) is encoded anyway, with a zero
+       * threadgroup size: winemetal then drops the dispatches queued for it
+       * instead of running them on whatever kernel was bound before. */
       auto &cmd = enc.encodeComputeCommand<wmtcmd_compute_setpso>();
       cmd.type = WMTComputeCommandSetPSO;
       cmd.pso = ComputePipeline.PipelineState;
-      cmd.threadgroup_size = tg_size;
+      cmd.threadgroup_size = ComputePipeline.PipelineState ? tg_size : WMTSize{0, 0, 0};
     });
 
     cmdbuf_state = CommandBufferState::ComputePipelineReady;

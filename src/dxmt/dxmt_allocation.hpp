@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "dxmt_residency.hpp"
+#include "rc/util_rc_ptr.hpp"
 #include <atomic>
 #include <cstdint>
 
@@ -37,11 +39,23 @@ public:
     return false;
   }
 
+  // only called by the encoder thread
+  void
+  useResidencySet(ResidencySetTracker *residency_set, WMT::Allocation object) {
+    if (residency_set_.ptr())
+      return;
+    residency_set->add(object);
+    residency_set_ = residency_set;
+    residency_object_ = object;
+  }
+
 private:
   virtual void free() = 0;
 
   std::atomic<uint32_t> refcount_ = {0u};
   uint64_t last_retained_seq_id = 0;
+  Rc<ResidencySetTracker> residency_set_;
+  WMT::Allocation residency_object_;
 };
 
 class AllocationRefTracking {

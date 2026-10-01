@@ -31,8 +31,13 @@ Allocation::incRef() {
 
 void
 Allocation::decRef() {
-  if (refcount_.fetch_sub(1u, std::memory_order_release) == 1u)
+  if (refcount_.fetch_sub(1u, std::memory_order_release) == 1u) {
+    // residency is set up by the encoder thread
+    std::atomic_thread_fence(std::memory_order_acquire);
+    if (residency_set_.ptr())
+      residency_set_->remove(residency_object_);
     this->free();
+  }
 };
 
 AllocationRefTracking::AllocationRefTracking() {

@@ -176,6 +176,7 @@ private:
   dxmt::thread finishThread;
   WMT::Device device;
   WMT::Reference<WMT::CommandQueue> commandQueue;
+  Rc<ResidencySetTracker> residency_set;
 
   obj_handle_t shared_event_listener;
   dxmt::thread event_listener_thread;

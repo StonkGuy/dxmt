@@ -145,6 +145,14 @@ public:
     return flags_;
   }
 
+  // a linear texture is created from a buffer, which is the actual allocation
+  WMT::Allocation
+  residencyObject() const {
+    if (buffer_ != nullptr)
+      return buffer_;
+    return obj_;
+  }
+
   Texture *descriptor;
   void *mappedMemory;
   uint64_t gpuResourceID;

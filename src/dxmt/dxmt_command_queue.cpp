@@ -55,6 +55,20 @@ CommandQueue::CommandQueue(WMT::Device device) :
     argument_encoding_ctx(*this, device, cmd_library),
     initializer(device),
     counter_pool(device) {
+  uint64_t os_major = 0, os_minor = 0, os_patch = 0;
+  WMTGetOSVersion(&os_major, &os_minor, &os_patch);
+  if (os_major >= 15 && env::getEnvVar("DXMT_RESIDENCY_SET") != "0") {
+    WMT::Reference<WMT::Error> err;
+    auto set = device.newResidencySet(0, err);
+    if (set != nullptr) {
+      commandQueue.addResidencySet(set);
+      residency_set = new ResidencySetTracker(std::move(set));
+      argument_encoding_ctx.setResidencySet(residency_set.ptr());
+    } else {
+      WARN("Failed to create MTLResidencySet: ", err.description().getUTF8String());
+    }
+  }
+
   for (unsigned i = 0; i < kCommandChunkCount; i++) {
     auto &chunk = chunks[i];
     chunk.queue = this;
@@ -169,6 +183,8 @@ CommandQueue::CommitChunkInternal(CommandChunk &chunk, uint64_t seq) {
     cmdbuf.encodeWaitForEvent(initializer.event(), chunk.resource_initializer_event_id);
   }
   chunk.encode(chunk.attached_cmdbuf, this->argument_encoding_ctx);
+  if (residency_set.ptr())
+    residency_set->commit();
   cmdbuf.commit();
 
   ready_for_commit.fetch_add(1, std::memory_order_release);

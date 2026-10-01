@@ -538,6 +538,28 @@ public:
 
   void retainAllocation(Allocation* allocation);
 
+  void
+  setResidencySet(ResidencySetTracker *residency_set) {
+    residency_set_ = residency_set;
+  }
+
+  // returns false if the allocation still needs `useResource`
+  bool
+  makeResidentInSet(BufferAllocation *allocation) {
+    if (!residency_set_ || allocation->flags().test(BufferAllocationFlag::AllocatedOnHeap))
+      return false;
+    allocation->useResidencySet(residency_set_, allocation->buffer());
+    return true;
+  }
+
+  bool
+  makeResidentInSet(TextureAllocation *allocation) {
+    if (!residency_set_ || allocation->flags().test(TextureAllocationFlag::AllocatedOnHeap))
+      return false;
+    allocation->useResidencySet(residency_set_, allocation->residencyObject());
+    return true;
+  }
+
   template <PipelineStage stage, PipelineKind kind>
   void
   makeResident(WMT::Resource resource, DXMT_RESOURCE_RESIDENCY requested) {
@@ -558,6 +580,8 @@ public:
   void
   makeResident(Counter *counter) {
     auto allocation = getCounterAllocation(counter)->buffer();
+    if (makeResidentInSet(allocation))
+      return;
     uint64_t encoder_id = currentEncoder()->id;
     DXMT_RESOURCE_RESIDENCY requested = GetResidencyMask<kind>(stage, true, true);
     if (CheckResourceResidency(allocation->residencyState, encoder_id, requested)) {
@@ -568,6 +592,8 @@ public:
   void
   makeResident(Buffer *buffer, bool read = true, bool write = false) {
     auto allocation = buffer->current();
+    if (makeResidentInSet(allocation))
+      return;
     uint64_t encoder_id = currentEncoder()->id;
     DXMT_RESOURCE_RESIDENCY requested = GetResidencyMask<kind>(stage, read, write);
     if (CheckResourceResidency(allocation->residencyState, encoder_id, requested)) {
@@ -578,6 +604,8 @@ public:
   void
   makeResident(Buffer *buffer, uint64_t viewId, bool read = true, bool write = false) {
     auto allocation = buffer->current();
+    if (makeResidentInSet(allocation))
+      return;
     uint64_t encoder_id = currentEncoder()->id;
     DXMT_RESOURCE_RESIDENCY requested = GetResidencyMask<kind>(stage, read, write);
     if (CheckResourceResidency(buffer->residency(viewId, allocation), encoder_id, requested)) {
@@ -588,6 +616,8 @@ public:
   void
   makeResident(Texture *texture, uint64_t viewId, bool read = true, bool write = false) {
     auto allocation = texture->current();
+    if (makeResidentInSet(allocation))
+      return;
     uint64_t encoder_id = currentEncoder()->id;
     DXMT_RESOURCE_RESIDENCY requested = GetResidencyMask<kind>(stage, read, write);
     auto &view = texture->view(viewId, allocation);
@@ -927,6 +957,8 @@ private:
   uint64_t intrapass_barrier_control_bits_ = 0;
 
   CommandQueue& queue_;
+
+  ResidencySetTracker *residency_set_ = nullptr;
 };
 
 template <>

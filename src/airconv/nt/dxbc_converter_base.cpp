@@ -35,6 +35,17 @@ GetArrayType(llvm::Value *Array) {
   return llvm::cast<llvm::ArrayType>(llvm::cast<llvm::PointerType>(Array->getType())->getNonOpaquePointerElementType());
 }
 
+// A single dynamically indexed access keeps a whole indexable temp array in thread memory, since SROA can only
+// promote allocas whose accesses all use constant indices. For arrays up to this many registers, dynamic accesses
+// are lowered to select chains over constant-index accesses instead, so the array can live in registers.
+constexpr unsigned kMaxSelectLoweredIndexableTempRegisters = 8;
+
+static bool
+UseSelectLowering(llvm::Value *Index, llvm::ArrayType *TyHandle, unsigned VecSize) {
+  return !llvm::isa<llvm::ConstantInt>(Index) &&
+         TyHandle->getNumElements() / VecSize <= kMaxSelectLoweredIndexableTempRegisters;
+}
+
 llvm::Value *
 Converter::LoadOperandIndex(const IndexByTempComponent &SrcOpIndex) {
   auto Comp = SrcOpIndex.component;
@@ -288,24 +299,31 @@ Converter::LoadOperand(const SrcOperandIndexableTemp &SrcOp, mask_t Mask) {
   auto TyHandle = GetArrayType(Handle);
   auto Index = LoadOperandIndex(SrcOp.regindex);
   auto TyInt = air.getIntTy();
+  auto VecSize = regfile.vec_size;
+
+  auto LoadElement = [&](llvm::Value *RegIndex, unsigned Comp) -> llvm::Value * {
+    auto Ptr = ir.CreateGEP(
+        TyHandle, Handle, {ir.getInt32(0), ir.CreateAdd(ir.CreateMul(RegIndex, ir.getInt32(VecSize)), ir.getInt32(Comp))}
+    );
+    return ir.CreateLoad(TyInt, Ptr);
+  };
+  auto LoadComponent = [&](unsigned Comp) -> llvm::Value * {
+    if (!UseSelectLowering(Index, TyHandle, VecSize))
+      return LoadElement(Index, Comp);
+    llvm::Value *Value = LoadElement(ir.getInt32(0), Comp);
+    for (unsigned Reg = 1; Reg < TyHandle->getNumElements() / VecSize; Reg++)
+      Value = ir.CreateSelect(ir.CreateICmpEQ(Index, ir.getInt32(Reg)), LoadElement(ir.getInt32(Reg), Comp), Value);
+    return Value;
+  };
 
   if (auto Comp = ComponentFromScalarMask(Mask, SrcOp._.swizzle); Comp >= 0) {
-    auto Ptr = ir.CreateGEP(
-        TyHandle, Handle,
-        {ir.getInt32(0), ir.CreateAdd(ir.CreateMul(Index, ir.getInt32(regfile.vec_size)), ir.getInt32(Comp))}
-    );
-    auto ValueInt = ir.CreateLoad(TyInt, Ptr);
-    return ApplySrcModifier(SrcOp._, ValueInt, Mask);
+    return ApplySrcModifier(SrcOp._, LoadComponent(Comp), Mask);
   }
 
-  auto TyIntVec = air.getIntTy(regfile.vec_size);
+  auto TyIntVec = air.getIntTy(VecSize);
   llvm::Value *ValueIntVec = llvm::PoisonValue::get(TyIntVec);
   for (auto [DstComp, _] : EnumerateComponents(MemoryAccessMask(Mask, SrcOp._.swizzle))) {
-    auto Ptr = ir.CreateGEP(
-        TyHandle, Handle,
-        {ir.getInt32(0), ir.CreateAdd(ir.CreateMul(Index, ir.getInt32(regfile.vec_size)), ir.getInt32(DstComp))}
-    );
-    ValueIntVec = ir.CreateInsertElement(ValueIntVec, ir.CreateLoad(TyInt, Ptr), DstComp);
+    ValueIntVec = ir.CreateInsertElement(ValueIntVec, LoadComponent(DstComp), DstComp);
   }
   return ApplySrcModifier(SrcOp._, ValueIntVec, Mask);
 }
@@ -710,13 +728,29 @@ Converter::StoreOperand(const DstOperandIndexableTemp &DstOp, llvm::Value *Value
   auto Handle = regfile.ptr_int_vec;
   auto TyHandle = GetArrayType(Handle);
   auto Index = LoadOperandIndex(DstOp.regindex);
+  auto VecSize = regfile.vec_size;
+
+  auto ElementPtr = [&](llvm::Value *RegIndex, unsigned Comp) {
+    return ir.CreateInBoundsGEP(
+        TyHandle, Handle, {ir.getInt32(0), ir.CreateAdd(ir.CreateMul(RegIndex, ir.getInt32(VecSize)), ir.getInt32(Comp))}
+    );
+  };
+
+  if (UseSelectLowering(Index, TyHandle, VecSize)) {
+    // write every register, keeping the old value where the index doesn't match
+    auto TyInt = air.getIntTy();
+    for (unsigned Reg = 0; Reg < TyHandle->getNumElements() / VecSize; Reg++) {
+      auto Match = ir.CreateICmpEQ(Index, ir.getInt32(Reg));
+      for (auto [DstComp, SrcComp] : EnumerateComponents(DstOp._.mask)) {
+        auto Ptr = ElementPtr(ir.getInt32(Reg), DstComp);
+        ir.CreateStore(ir.CreateSelect(Match, ExtractElement(ValueInt, SrcComp), ir.CreateLoad(TyInt, Ptr)), Ptr);
+      }
+    }
+    return;
+  }
 
   for (auto [DstComp, SrcComp] : EnumerateComponents(DstOp._.mask)) {
-    auto Ptr = ir.CreateInBoundsGEP(
-        TyHandle, Handle,
-        {ir.getInt32(0), ir.CreateAdd(ir.CreateMul(Index, ir.getInt32(regfile.vec_size)), ir.getInt32(DstComp))}
-    );
-    ir.CreateStore(ExtractElement(ValueInt, SrcComp), Ptr);
+    ir.CreateStore(ExtractElement(ValueInt, SrcComp), ElementPtr(Index, DstComp));
   }
 }
 

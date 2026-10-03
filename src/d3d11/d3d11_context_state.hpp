@@ -182,7 +182,12 @@ struct D3D11ContextState {
   BOOL predicate_value = FALSE;
 };
 
-// TODO: implement it properly
+/**
+Holds a complete pipeline state for ID3D11DeviceContext1::SwapDeviceContextState.
+
+A newly created state object holds the default (cleared) pipeline state. While a state object is active on a
+context its `state` is stale; the context writes its live state back into it when another one is swapped in.
+*/
 class MTLD3D11DeviceContextState
     : public MTLD3D11DeviceChild<ID3DDeviceContextState> {
 
@@ -191,6 +196,8 @@ public:
       : MTLD3D11DeviceChild<ID3DDeviceContextState>(pDevice) {}
 
   ~MTLD3D11DeviceContextState() {}
+
+  D3D11ContextState state = {};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
     if (ppvObject == nullptr)

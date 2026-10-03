@@ -1921,7 +1921,35 @@ public:
   void
   STDMETHODCALLTYPE
   SwapDeviceContextState(ID3DDeviceContextState *pState, ID3DDeviceContextState **ppPreviousState) override {
-    UNIMPLEMENTED("SwapDeviceContextState");
+    std::lock_guard<mutex_t> lock(mutex);
+
+    if (ppPreviousState)
+      *ppPreviousState = nullptr;
+
+    if (!pState)
+      return;
+
+    // the context starts out with an implicit state object holding its current state
+    if (!active_context_state_)
+      active_context_state_ = new MTLD3D11DeviceContextState(device);
+
+    if (ppPreviousState)
+      *ppPreviousState = ref(active_context_state_.ptr());
+
+    auto next = static_cast<MTLD3D11DeviceContextState *>(pState);
+    if (next == active_context_state_.ptr())
+      return;
+
+    // end the current pass while state_ still describes it
+    ResetEncodingContextState();
+
+    // binding sets are move-only; moving marks every bound slot dirty, and pipeline state is rebuilt on the next
+    // draw/dispatch. the incoming object's copy is left stale while it is active (see MTLD3D11DeviceContextState)
+    active_context_state_->state = std::move(state_);
+    state_ = std::move(next->state);
+    active_context_state_ = next;
+
+    RestoreEncodingContextState();
   }
 
   void
@@ -5198,6 +5226,8 @@ public:
 
 protected:
   D3D11ContextState state_;
+  // private reference: a public one would keep the device alive
+  Com<MTLD3D11DeviceContextState, false> active_context_state_;
   D3D11UserDefinedAnnotation annotation_;
   MTLD3D11ContextExt<ContextInternalState> ext_;
   uint64_t max_object_threadgroups_;

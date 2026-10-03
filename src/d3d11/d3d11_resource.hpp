@@ -9,6 +9,7 @@
 #include "com/com_guid.hpp"
 #include "d3d11_view.hpp"
 #include "dxgi_resource.hpp"
+#include "d3d11_dxgi_surface.hpp"
 #include "log/log.hpp"
 #include "../d3d10/d3d10_buffer.hpp"
 #include "../d3d10/d3d10_texture.hpp"
@@ -192,6 +193,7 @@ public:
       MTLD3D11DeviceChild<D3D11ResourceCommon, Base...>(device),
       desc(desc),
       dxgi_resource(this),
+      dxgi_surface(this),
       keyed_mutex(this, device->GetImmediateContextPrivate()),
       d3d10(reinterpret_cast<tag::COM *>(this), device->GetImmediateContextPrivate()) {
     // D3D11ResourceCommonß::bind_flags_
@@ -244,6 +246,17 @@ public:
       return S_OK;
     }
   
+    if (riid == __uuidof(IDXGISurface) || riid == __uuidof(IDXGISurface1) || riid == __uuidof(IDXGISurface2)) {
+      // only a texture with exactly one subresource can be viewed as a surface
+      if constexpr (tag::dimension == D3D11_RESOURCE_DIMENSION_TEXTURE2D) {
+        if (this->desc.MipLevels == 1 && this->desc.ArraySize == 1) {
+          *ppvObject = ref(&dxgi_surface);
+          return S_OK;
+        }
+      }
+      return E_NOINTERFACE;
+    }
+
     if (riid == __uuidof(IDXGIKeyedMutex)) {
       if (!(this->desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX))
         return E_NOINTERFACE;
@@ -320,6 +333,7 @@ public:
 protected:
   tag::DESC1 desc;
   MTLDXGIResource<TResourceBase<tag, Base...>> dxgi_resource;
+  MTLDXGISurface<TResourceBase<tag, Base...>> dxgi_surface;
   MTLDXGIKeyedMutex<TResourceBase<tag, Base...>, IMTLD3D11DeviceContext> keyed_mutex;
   tag::D3D10_IMPL d3d10;
 };

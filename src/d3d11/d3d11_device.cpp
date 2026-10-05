@@ -976,6 +976,16 @@ public:
       *ppQuery = ref(new MTLD3D11DummyQuery<D3D11_QUERY_DATA_PIPELINE_STATISTICS>(this, pQueryDesc));
       return S_OK;
     }
+    // Stream-output queries cannot be implemented on Metal. The game created one while loading a
+    // vehicle in the hangar and exited when the call failed, so answer with a dummy like above.
+    case D3D11_QUERY_SO_STATISTICS: {
+      *ppQuery = ref(new MTLD3D11DummyQuery<D3D11_QUERY_DATA_SO_STATISTICS>(this, pQueryDesc));
+      return S_OK;
+    }
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE: {
+      *ppQuery = ref(new MTLD3D11DummyQuery<BOOL>(this, pQueryDesc));
+      return S_OK;
+    }
     default:
       ERR("CreateQuery1: query type not implemented: ", pQueryDesc->Query);
       return E_NOTIMPL;

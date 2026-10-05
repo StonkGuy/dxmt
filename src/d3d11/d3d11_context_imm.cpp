@@ -328,7 +328,9 @@ public:
         });
       break;
     }
-    case D3D11_QUERY_PIPELINE_STATISTICS: {
+    case D3D11_QUERY_PIPELINE_STATISTICS:
+    case D3D11_QUERY_SO_STATISTICS:
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE: {
       // ignore
       break;
     }
@@ -385,7 +387,9 @@ public:
       promote_flush = true;
       break;
     }
-    case D3D11_QUERY_PIPELINE_STATISTICS: {
+    case D3D11_QUERY_PIPELINE_STATISTICS:
+    case D3D11_QUERY_SO_STATISTICS:
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE: {
       // ignore
       break;
     }
@@ -462,6 +466,18 @@ public:
     case D3D11_QUERY_PIPELINE_STATISTICS: {
       if (pData) {
         (*static_cast<D3D11_QUERY_DATA_PIPELINE_STATISTICS *>(pData)) = {};
+      }
+      return S_OK;
+    }
+    case D3D11_QUERY_SO_STATISTICS: {
+      if (pData) {
+        (*static_cast<D3D11_QUERY_DATA_SO_STATISTICS *>(pData)) = {};
+      }
+      return S_OK;
+    }
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE: {
+      if (pData) {
+        *static_cast<BOOL *>(pData) = FALSE;
       }
       return S_OK;
     }

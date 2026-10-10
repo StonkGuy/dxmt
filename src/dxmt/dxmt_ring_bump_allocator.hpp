@@ -94,12 +94,16 @@ public:
     WMT::Reference<WMT::Buffer> buffer;
     uint64_t gpu_address;
     void *mapped_address;
+    /* the memory placed under the buffer (freed with the block); mapped_address is what newBuffer
+       returned for CPU access, which a unix side may back with other memory than the placed one */
+    void *placed_address;
 
     ~Block() {
-      if (mapped_address) {
-        free(mapped_address);
-        mapped_address = nullptr;
+      if (placed_address) {
+        free(placed_address);
+        placed_address = nullptr;
       }
+      mapped_address = nullptr;
     };
 
     Block() = default;
@@ -109,20 +113,24 @@ public:
       buffer = std::move(move.buffer);
       gpu_address = move.gpu_address;
       mapped_address = move.mapped_address;
+      placed_address = move.placed_address;
       move.mapped_address = nullptr;
+      move.placed_address = nullptr;
     };
   };
 
   Block
   allocate(size_t block_size) {
     Block block{};
-    block.mapped_address = placed_buffer_ ? malloc(block_size) : nullptr;
+    block.placed_address = placed_buffer_ ? malloc(block_size) : nullptr;
     WMTBufferInfo info;
     info.options = buffer_info_;
-    info.memory.set(block.mapped_address);
+    info.memory.set(block.placed_address);
     info.length = block_size;
     block.buffer = device_.newBuffer(info);
     block.gpu_address = info.gpu_address;
+    /* CPU writes go where newBuffer says the contents are (like BufferAllocation does) */
+    block.mapped_address = placed_buffer_ ? info.memory.get() : nullptr;
     return block;
   };
 

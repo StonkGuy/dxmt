@@ -68,10 +68,18 @@ airconv_shaders = [
   'shaders/air_tessellation.metal',
 ]
 
-airconv_shaders_ir = metalir_generator.process(
-  airconv_shaders,
-  extra_args: ['-std=metal3.1', '--target=air64-apple-macos14.0'],
-)
+if get_option('prebuilt_metal_dir') != ''
+  airconv_shaders_ir = files(
+    join_paths(get_option('prebuilt_metal_dir'), 'air_msad.air'),
+    join_paths(get_option('prebuilt_metal_dir'), 'air_samplepos.air'),
+    join_paths(get_option('prebuilt_metal_dir'), 'air_tessellation.air'),
+  )
+else
+  airconv_shaders_ir = metalir_generator.process(
+    airconv_shaders,
+    extra_args: ['-std=metal3.1', '--target=air64-apple-macos14.0'],
+  )
+endif
 airconv_shaders_header = hexdump_generator.process(airconv_shaders_ir)
 
 airconv_src += airconv_shaders_header
@@ -106,6 +114,6 @@ executable('airconv', airconv_src + airconv_cli_src,
 
 endif
 
-if cpu_family == 'x86_64' or cpu_family == 'aarch64' or not dxmt_crossbuild
+if (cpu_family == 'x86_64' or cpu_family == 'aarch64' or not dxmt_crossbuild) and get_option('build_unixlib')
   subdir('darwin')
 endif

@@ -57,6 +57,6 @@ custom_target('postprocess_lib',
   build_by_default : true
 )
 
-if cpu_family == 'x86_64' or cpu_family == 'aarch64'
+if (cpu_family == 'x86_64' or cpu_family == 'aarch64') and get_option('build_unixlib')
   subdir('unix')
 endif

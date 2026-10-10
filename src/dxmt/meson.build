@@ -29,9 +29,12 @@ dxmt_shaders = [
   'dxmt_command.metal'
 ]
 
-dxmt_shaders_ir = metalir_generator.process(dxmt_shaders)
-
-dxmt_shaders_lib = metallib_generator.process(dxmt_shaders_ir)
+if get_option('prebuilt_metal_dir') != ''
+  dxmt_shaders_lib = files(join_paths(get_option('prebuilt_metal_dir'), 'dxmt_command.metallib'))
+else
+  dxmt_shaders_ir = metalir_generator.process(dxmt_shaders)
+  dxmt_shaders_lib = metallib_generator.process(dxmt_shaders_ir)
+endif
 
 dxmt_shaders_header = hexdump_generator.process(dxmt_shaders_lib)
 

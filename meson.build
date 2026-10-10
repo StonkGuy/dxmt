@@ -112,17 +112,19 @@ else
   wrc_generator = generator(wrc, output : [ '@BASENAME@_ignored.h' ], arguments : [ '@OUTPUT@' ] )
 endif
 
-xcrun = find_program('xcrun')
+xcrun = find_program('xcrun', required : get_option('prebuilt_metal_dir') == '')
 
-metalir_generator = generator(xcrun,
-  output    : [ '@BASENAME@.air'],
-  arguments : [ '-sdk', 'macosx', 'metal', '-o', '@OUTPUT@', '-c', '@INPUT@', '@EXTRA_ARGS@'],
-)
+if xcrun.found()
+  metalir_generator = generator(xcrun,
+    output    : [ '@BASENAME@.air'],
+    arguments : [ '-sdk', 'macosx', 'metal', '-o', '@OUTPUT@', '-c', '@INPUT@', '@EXTRA_ARGS@'],
+  )
 
-metallib_generator = generator(xcrun,
-  output    : [ '@BASENAME@.metallib'],
-  arguments : [ '-sdk', 'macosx', 'metallib', '-o', '@OUTPUT@', '@INPUT@'],
-)
+  metallib_generator = generator(xcrun,
+    output    : [ '@BASENAME@.metallib'],
+    arguments : [ '-sdk', 'macosx', 'metallib', '-o', '@OUTPUT@', '@INPUT@'],
+  )
+endif
 
 xxd = find_program('xxd')
 

@@ -519,6 +519,20 @@ public:
     InvalidateCurrentPass(true);
   }
 
+  HRESULT
+  FlushForExport(UINT64 *pSharedEvent, UINT64 *pSignalValue) override {
+    if (!pSharedEvent || !pSignalValue)
+      return E_POINTER;
+    std::lock_guard<d3d11_device_mutex> lock(mutex);
+    if (ctx_state.has_dirty_op_since_last_event || promote_flush) {
+      InvalidateCurrentPass(true);
+      Commit();
+    }
+    *pSharedEvent = cmd_queue.event.handle;
+    *pSignalValue = cmd_queue.GetCurrentEventSeqId();
+    return S_OK;
+  }
+
   void
   STDMETHODCALLTYPE
   ExecuteCommandList(ID3D11CommandList *pCommandList, BOOL RestoreContextState) override {

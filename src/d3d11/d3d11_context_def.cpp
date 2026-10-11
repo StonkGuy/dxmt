@@ -436,6 +436,10 @@ public:
       // nop
   };
 
+  HRESULT FlushForExport(UINT64 *pSharedEvent, UINT64 *pSignalValue) override {
+    return E_NOTIMPL;
+  };
+
   void Commit() override{
       // nop
   };

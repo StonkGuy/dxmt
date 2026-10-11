@@ -3190,6 +3190,12 @@ _MTLDevice_newLibraryWithSource(void *obj) {
 }
 
 static NTSTATUS
+_WMTVRSubmit(void *obj) {
+  /* only a remoting executor with a VR host implements the export */
+  return 0xC00000BB; /* STATUS_NOT_SUPPORTED */
+}
+
+static NTSTATUS
 _MTLTexture_getBytes(void *obj) {
   struct unixcall_mtltexture_replaceregion *params = obj;
   [(id<MTLTexture>)params->texture getBytes:params->data.ptr
@@ -3361,6 +3367,7 @@ const void *__wine_unix_call_funcs[] = {
     &_MTLDevice_newIndirectCommandBuffer,
     &_MTLDevice_newLibraryWithSource,
     &_MTLTexture_getBytes,
+    &_WMTVRSubmit,
 };
 
 #ifndef DXMT_NATIVE
@@ -3511,5 +3518,6 @@ const void *__wine_unix_call_wow64_funcs[] = {
     &_MTLDevice_newIndirectCommandBuffer,
     &_MTLDevice_newLibraryWithSource,
     &_MTLTexture_getBytes,
+    &_WMTVRSubmit,
 };
 #endif

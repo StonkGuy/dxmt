@@ -435,6 +435,10 @@ struct unixcall_mtldevice_newicb {
   obj_handle_t ret;
 };
 
+struct unixcall_wmtvr_submit {
+  struct WMTVRSubmitInfo info;
+};
+
 #pragma pack(pop)
 
 #endif

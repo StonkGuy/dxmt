@@ -1,4 +1,5 @@
 #pragma once
+#include "config/config.hpp"
 #include "dxmt_buffer.hpp"
 #include "dxmt_dynamic.hpp"
 #include "dxmt_staging.hpp"
@@ -159,6 +160,13 @@ struct D3D11ResourceCommon : ID3D11Resource {
     return keyed_mutex_;
   }
 };
+
+/* d3d11.cpuCachedDynamicResources: DYNAMIC buffers and textures are allocated CPU-cached instead of
+   write-combined (MTLCPUCacheModeWriteCombined) */
+inline bool CpuCachedDynamicResources() {
+  static const bool cached = Config::getInstance().getOption<bool>("d3d11.cpuCachedDynamicResources", false);
+  return cached;
+}
 
 inline D3D11ResourceCommon* GetResourceCommon(ID3D11Resource *pResource) {
   return static_cast<D3D11ResourceCommon *>(pResource);

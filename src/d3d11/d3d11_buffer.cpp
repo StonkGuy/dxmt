@@ -84,7 +84,7 @@ public:
       TResourceBase<tag_buffer>(*pDesc, device) {
     buffer_ = new Buffer(pDesc->ByteWidth, device->GetMTLDevice());
     Flags<BufferAllocationFlag> flags;
-    if (!m_parent->IsTraced() && pDesc->Usage == D3D11_USAGE_DYNAMIC)
+    if (!m_parent->IsTraced() && pDesc->Usage == D3D11_USAGE_DYNAMIC && !CpuCachedDynamicResources())
       flags.set(BufferAllocationFlag::CpuWriteCombined);
     // if (pDesc->Usage != D3D11_USAGE_DEFAULT)
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE)

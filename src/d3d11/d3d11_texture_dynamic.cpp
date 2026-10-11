@@ -117,7 +117,9 @@ HRESULT CreateDynamicTextureInternal(MTLD3D11Device *pDevice,
       return E_FAIL;
     }
     Flags<BufferAllocationFlag> buffer_flags;
-    buffer_flags.set(BufferAllocationFlag::CpuWriteCombined, BufferAllocationFlag::SuballocateFromOnePage);
+    buffer_flags.set(BufferAllocationFlag::SuballocateFromOnePage);
+    if (!CpuCachedDynamicResources())
+      buffer_flags.set(BufferAllocationFlag::CpuWriteCombined);
 #ifdef __i386__
     buffer_flags.set(BufferAllocationFlag::CpuPlaced);
 #endif

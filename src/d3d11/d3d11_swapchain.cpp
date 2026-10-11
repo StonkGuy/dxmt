@@ -147,6 +147,8 @@ public:
                                  pDevice->GetDXMTDevice().queue().cmd_library,
                                  scale_factor, desc_.SampleDesc.Count));
 
+    submit_before_present_ = Config::getInstance().getOption<bool>("d3d11.submitBeforePresent", true);
+
     frame_latency = kSwapchainLatency;
     present_semaphore_ = CreateSemaphore(nullptr, frame_latency,
                                          DXGI_MAX_SWAP_CHAIN_BUFFERS, nullptr);
@@ -759,6 +761,13 @@ public:
 
     std::unique_lock<d3d11_device_mutex> lock(device_->mutex);
 
+    /* Submit the frame's own commands first: the present is encoded on the queue's encoder thread and acquires
+       the next drawable there, which can wait for the display. In the same chunk, the frame's last draws would
+       wait for that drawable before their command buffer is committed. Flush() commits only if anything was
+       recorded since the last submission. */
+    if (submit_before_present_ && hr == S_OK)
+      device_context_->Flush();
+
     device_context_->PrepareFlush();
     if (hr == DXGI_STATUS_OCCLUDED) {
       // flush commands without presenting
@@ -1066,6 +1075,7 @@ private:
   WMT::Object native_view_;
   WMT::MetalLayer layer_weak_;
   ULONG presentation_count_;
+  bool submit_before_present_ = true;
   DXGI_SWAP_CHAIN_DESC1 desc_;
   DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreen_desc_;
   D3D11_TEXTURE2D_DESC1 backbuffer_desc_;

@@ -104,11 +104,16 @@ struct ShaderVariantPixel {
   bool dual_source_blending;
   bool disable_depth_output;
   uint32_t unorm_output_reg_mask;
+  /* MTLPixelFormat of each integer (Uint/Sint) render target, 0 for any other format: airconv then
+     declares that output with the attachment's component type (SM50_SHADER_PSO_PIXEL_SHADER_DATA::
+     pixel_formats). Non-integer targets stay 0 so they do not multiply the variants. */
+  uint32_t integer_rt_formats[8] = {};
   bool operator==(const this_type &rhs) const {
     return sample_mask == rhs.sample_mask &&
            dual_source_blending == rhs.dual_source_blending &&
            disable_depth_output == rhs.disable_depth_output &&
-           unorm_output_reg_mask == rhs.unorm_output_reg_mask;
+           unorm_output_reg_mask == rhs.unorm_output_reg_mask &&
+           !memcmp(integer_rt_formats, rhs.integer_rt_formats, sizeof(integer_rt_formats));
   }
 };
 

@@ -174,6 +174,10 @@ CreateVariantShader(MTLD3D11Device *pDevice, ManagedShader shader,
   h.update(variant.unorm_output_reg_mask);
   h.update(variant.dual_source_blending);
   h.update(variant.disable_depth_output);
+  /* only pipelines with an integer render target hash it: other variants keep their digest */
+  if (std::any_of(std::begin(variant.integer_rt_formats), std::end(variant.integer_rt_formats),
+                  [](uint32_t format) { return format != 0; }))
+    h.update(variant.integer_rt_formats);
   auto variant_digest = h.final();
   std::string func_name = "ps_" + shader->sha1().string().substr(0, 8) + "_" + variant_digest.string();
 
@@ -185,7 +189,7 @@ CreateVariantShader(MTLD3D11Device *pDevice, ManagedShader shader,
     data.dual_source_blending = variant.dual_source_blending;
     data.disable_depth_output = variant.disable_depth_output;
     data.unorm_output_reg_mask = variant.unorm_output_reg_mask;
-    memset(data.pixel_formats, 0, sizeof(data.pixel_formats));
+    memcpy(data.pixel_formats, variant.integer_rt_formats, sizeof(data.pixel_formats));
 
     sm50_bitcode_t compile_result = nullptr;
     sm50_error_t sm50_err = nullptr;

@@ -37,8 +37,11 @@ public:
     if (pDesc->RasterizationEnabled && !pDesc->PixelShader)
       num_rtvs = 0;
     uint32_t unorm_output_reg_mask = 0;
+    ShaderVariantPixel ps_variant{};
     for (unsigned i = 0; i < num_rtvs; i++) {
       rtv_formats[i] = pDesc->ColorAttachmentFormats[i];
+      if (IsIntegerFormat(pDesc->ColorAttachmentFormats[i]))
+        ps_variant.integer_rt_formats[i] = pDesc->ColorAttachmentFormats[i];
       unorm_output_reg_mask |= (uint32_t(IsUnorm8RenderTargetFormat(
                                     pDesc->ColorAttachmentFormats[i]))
                                 << i);
@@ -51,10 +54,11 @@ public:
       ShaderVariantGeometry{pDesc->VertexShader, pDesc->GSStripTopology});
    
     if (pDesc->PixelShader) {
-      PixelShader = pDesc->PixelShader->get_shader(ShaderVariantPixel{
-          pDesc->SampleMask, pDesc->BlendState->IsDualSourceBlending(),
-          depth_stencil_format == WMTPixelFormatInvalid,
-          unorm_output_reg_mask});
+      ps_variant.sample_mask = pDesc->SampleMask;
+      ps_variant.dual_source_blending = pDesc->BlendState->IsDualSourceBlending();
+      ps_variant.disable_depth_output = depth_stencil_format == WMTPixelFormatInvalid;
+      ps_variant.unorm_output_reg_mask = unorm_output_reg_mask;
+      PixelShader = pDesc->PixelShader->get_shader(ps_variant);
       ps_valid_render_targets = pDesc->PixelShader->reflection().PSValidRenderTargets;
     } else {
       PixelShader = nullptr;

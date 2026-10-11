@@ -859,7 +859,7 @@ public:
 
   Reference<Library>
   newLibraryWithSource(std::string_view view, Error &error) {
-    return Reference<Library>(MTLDevice_newLibraryWithSource(handle, view.data(), view.length(), &error.handle));
+    return Reference<Library>(MTLDevice_newLibraryWithSource(handle, view.data(), view.length(), error.out_handle()));
   }
 
   Reference<ComputePipelineState>

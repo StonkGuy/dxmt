@@ -3184,7 +3184,7 @@ _MTLDevice_newLibraryWithSource(void *obj) {
       [[NSString alloc] initWithBytes:params->source.ptr length:params->length encoding:NSASCIIStringEncoding];
   NSError *err = NULL;
   params->ret_library = (obj_handle_t)[device newLibraryWithSource:source options:nil error:&err];
-  params->ret_error = (obj_handle_t)err;
+  params->ret_error = (obj_handle_t)[err retain]; /* out-errors are autoreleased; the win side owns the handle (WMT::Reference) */
   [source release];
   return STATUS_SUCCESS;
 }

@@ -9,6 +9,7 @@
 #include "com/com_pointer.hpp"
 #include "com/com_guid.hpp"
 #include "d3d11_view.hpp"
+#include "d3d11_interfaces.hpp"
 #include "dxgi_resource.hpp"
 #include "d3d11_dxgi_surface.hpp"
 #include "log/log.hpp"
@@ -194,6 +195,38 @@ GetTexture(ID3D11Resource *pResource) {
   return static_cast<D3D11ResourceCommon *>(pResource)->texture();
 }
 
+/* IMTLD3D11ExportableTexture, aggregated into a texture resource (same lifetime rules as MTLDXGIResource) */
+template <typename IResource>
+class MTLD3D11ExportableTexture : public IMTLD3D11ExportableTexture {
+public:
+  MTLD3D11ExportableTexture(IResource *pResource, IMTLD3D11DeviceContext *pContext)
+      : resource_(pResource), context_(pContext) {}
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) final {
+    return resource_->QueryInterface(riid, ppvObject);
+  }
+  ULONG STDMETHODCALLTYPE AddRef() final { return resource_->AddRef(); }
+  ULONG STDMETHODCALLTYPE Release() final { return resource_->Release(); }
+
+  HRESULT STDMETHODCALLTYPE
+  GetMetalTexture(UINT64 *pTexture, UINT64 *pSharedEvent, UINT64 *pSignalValue) final {
+    if (!pTexture)
+      return E_POINTER;
+    auto &texture = resource_->texture();
+    if (!texture || !texture->current())
+      return E_FAIL;
+    HRESULT hr = context_->FlushForExport(pSharedEvent, pSignalValue);
+    if (FAILED(hr))
+      return hr;
+    *pTexture = texture->current()->texture().handle;
+    return S_OK;
+  }
+
+private:
+  IResource *resource_; // aggregated, no extra reference
+  IMTLD3D11DeviceContext *context_;
+};
+
 template <typename tag, typename... Base>
 class TResourceBase : public MTLD3D11DeviceChild<D3D11ResourceCommon, Base...> {
 public:
@@ -203,6 +236,7 @@ public:
       dxgi_resource(this),
       dxgi_surface(this),
       keyed_mutex(this, device->GetImmediateContextPrivate()),
+      exportable(this, device->GetImmediateContextPrivate()),
       d3d10(reinterpret_cast<tag::COM *>(this), device->GetImmediateContextPrivate()) {
     // D3D11ResourceCommonß::bind_flags_
     this->bind_flags_ = desc.BindFlags;
@@ -261,6 +295,14 @@ public:
           *ppvObject = ref(&dxgi_surface);
           return S_OK;
         }
+      }
+      return E_NOINTERFACE;
+    }
+
+    if (riid == __uuidof(IMTLD3D11ExportableTexture)) {
+      if constexpr (tag::dimension == D3D11_RESOURCE_DIMENSION_TEXTURE2D) {
+        *ppvObject = ref(&exportable);
+        return S_OK;
       }
       return E_NOINTERFACE;
     }
@@ -343,6 +385,7 @@ protected:
   MTLDXGIResource<TResourceBase<tag, Base...>> dxgi_resource;
   MTLDXGISurface<TResourceBase<tag, Base...>> dxgi_surface;
   MTLDXGIKeyedMutex<TResourceBase<tag, Base...>, IMTLD3D11DeviceContext> keyed_mutex;
+  MTLD3D11ExportableTexture<TResourceBase<tag, Base...>> exportable;
   tag::D3D10_IMPL d3d10;
 };
 

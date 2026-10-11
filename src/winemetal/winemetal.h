@@ -2148,4 +2148,29 @@ WINEMETAL_API void MTLTexture_getBytes(
     struct WMTMemoryPointer data, uint64_t bytes_per_row, uint64_t bytes_per_image
 );
 
+/* VR frame export (steamac VR): the eye textures of one frame are handed to the host's VR compositor.
+   Implemented only by a remoting executor that has a VR host attached (steamac wmtr); the plain
+   winemetal unix side returns STATUS_NOT_SUPPORTED (returned as uint32_t). Times are host CLOCK_UPTIME_RAW nanoseconds. */
+#define WMTVR_EYE_FLIP_Y 1u /* source rows are bottom-up */
+#define WMTVR_EYE_SRGB 2u   /* data is gamma encoded (sRGB view of a UNORM texture) */
+
+struct WMTVREye {
+  obj_handle_t texture; /* MTLTexture (IMTLD3D11ExportableTexture::GetMetalTexture) */
+  uint32_t x, y, w, h;  /* sub-rect in texels; w == 0 means the whole texture */
+  uint32_t flags;       /* WMTVR_EYE_* */
+  uint32_t slice;       /* array slice (single-pass stereo array textures) */
+};
+
+struct WMTVRSubmitInfo {
+  uint64_t frame_id;
+  uint64_t display_time; /* predicted display time the frame was rendered for */
+  struct WMTVREye eye[2];
+  float pose[2][7]; /* per eye: orientation x,y,z,w then position x,y,z (stage space) */
+  float fov[2][4];  /* per eye: left, right, up, down in radians (left/down negative) */
+  obj_handle_t wait_event; /* MTLSharedEvent; the export waits until it reaches wait_value (0: no wait) */
+  uint64_t wait_value;
+};
+
+WINEMETAL_API uint32_t WMTVRSubmit(const struct WMTVRSubmitInfo *info);
+
 #endif

@@ -1331,3 +1331,10 @@ MTLTexture_getBytes(
   params.bytes_per_image = bytes_per_image;
   UNIX_CALL(145, &params);
 }
+
+WINEMETAL_API uint32_t
+WMTVRSubmit(const struct WMTVRSubmitInfo *info) {
+  struct unixcall_wmtvr_submit params;
+  params.info = *info;
+  return WINE_UNIX_CALL(146, &params);
+}

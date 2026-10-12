@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "config/config.hpp"
 #include "d3d11_fence.hpp"
 #include "d3d11_private.h"
@@ -78,6 +79,9 @@ public:
       ctx_state({cmd_queue}),
       d3dmt_(this, mutex) {
         ignore_map_flag_no_wait_ = Config::getInstance().getOption<bool>("d3d11.ignoreMapFlagNoWait", false);
+        /* a configured dxgi.maxFrameLatency wins over the export's own bound */
+        if (Config::getInstance().getOption<int>("dxgi.maxFrameLatency", 0) <= 0)
+          export_max_frame_latency_ = std::clamp(Config::getInstance().getOption<int>("d3d11.exportMaxFrameLatency", 1), 0, 16);
       }
 
   HRESULT
@@ -528,6 +532,13 @@ public:
       InvalidateCurrentPass(true);
       Commit();
     }
+    /* An exported frame is taken by its consumer when its rendering has completed. Frames the CPU queues ahead of
+       the GPU only age in that queue (and keep the consumer's images waiting), so from the first export on the
+       queue is bounded; the application's SetMaximumFrameLatency can lower it further, not raise it. */
+    if (export_max_frame_latency_) {
+      cmd_queue.LimitMaxLatency(export_max_frame_latency_);
+      export_max_frame_latency_ = 0;
+    }
     *pSharedEvent = cmd_queue.event.handle;
     *pSignalValue = cmd_queue.GetCurrentEventSeqId();
     return S_OK;
@@ -695,6 +706,7 @@ private:
   std::atomic<uint32_t> refcount = 0;
   D3D11Multithread d3dmt_;
   bool ignore_map_flag_no_wait_;
+  uint32_t export_max_frame_latency_ = 0;
 };
 
 std::unique_ptr<MTLD3D11DeviceContextBase>

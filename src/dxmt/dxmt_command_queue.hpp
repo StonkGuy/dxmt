@@ -33,6 +33,7 @@
 #include "log/log.hpp"
 #include "thread.hpp"
 #include "util_cpu_fence.hpp"
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -171,6 +172,7 @@ private:
   uint64_t encoder_seq = 1;
   uint64_t frame_count = 0;
   uint32_t max_latency_ = 3;
+  uint32_t max_latency_limit_ = 0;
 
   dxmt::thread encodeThread;
   dxmt::thread finishThread;
@@ -275,7 +277,13 @@ public:
 
   uint32_t GetMaxLatency() { return max_latency_; }
 
-  void SetMaxLatency(uint32_t value) { max_latency_ = value; };
+  void SetMaxLatency(uint32_t value) { max_latency_ = max_latency_limit_ ? std::min(value, max_latency_limit_) : value; };
+
+  /* an upper bound that later SetMaxLatency calls keep; 0 removes it */
+  void LimitMaxLatency(uint32_t limit) {
+    max_latency_limit_ = limit;
+    SetMaxLatency(max_latency_);
+  };
 
   void
   WaitCPUFence(uint64_t seq) {

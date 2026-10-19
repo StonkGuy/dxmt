@@ -52,6 +52,8 @@ original author and names its source commit; a follow-up commit of ours adapts i
 | 21 | d3d11: d3d11.cpuCachedDynamicResources option | StonkGuy | idea seen in willfaust/dxmt (GPL-3.0), own implementation | PERF |
 | 22 | perf(airconv): keep small dynamically indexed temp arrays in registers | hanzpo | hanzpo/dxmt 48259b2c | AIRCONV_VERSION 28, PERF |
 | 23 | feat(dxmt): use residency set instead of useResource | Jakey-Jakey | Jakey-Jakey/dxmt c4fe91ec | `DXMT_RESIDENCY_SET=0` disables, PERF |
+| 24 | d3d11, winemetal: VR eye-texture export | StonkGuy | steamac (vr-export 507834a) | steamac VR: eye textures to the Mac's VR host (WMTVRSubmit); unused without a VR runtime |
+| 25 | d3d11: bound the frame queue once frames are exported | StonkGuy | steamac (vr-export 6b9fb22) | only after the first export |
 
 PERF rows: kept or dropped on the measurement in "Performance" below.
 
